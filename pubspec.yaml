@@ -22,11 +22,17 @@ dependencies:
   open_file: ^3.3.0
   path_provider: ^2.1.0
 
+  # Qurilma ruxsatlari (Downloads papkasiga saqlash uchun)
+  permission_handler: ^11.3.0
+
   # Lokal saqlash
   shared_preferences: ^2.2.0
 
   # UI
   percent_indicator: ^4.2.0
+
+  # Nafis tipografika (sarlavhalar uchun dekorativ shrift)
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

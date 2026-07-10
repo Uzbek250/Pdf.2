@@ -3,13 +3,16 @@
     <!-- Internet: backend bilan aloqa uchun -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Android 12 va pastroq versiyalarda tashqi xotiraga yozish uchun -->
+    <!-- Tashqi xotiraga yozish: Downloads papkasiga tarjima qilingan
+         faylni saqlash uchun. Android 12 va pastroq versiyalarda kerak;
+         Android 13+ da /storage/emulated/0/Download kabi umumiy
+         papkalarga yozish alohida runtime ruxsatisiz ham ishlaydi. -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
+        android:maxSdkVersion="32" />
 
     <application
         android:label="Hujjat Tarjimon"

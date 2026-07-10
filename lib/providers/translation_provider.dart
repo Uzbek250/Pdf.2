@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
+import '../app/theme.dart';
 import '../models/language_model.dart';
 import '../models/translation_task_state.dart';
 import '../services/api_service.dart';
@@ -82,6 +84,27 @@ class UiLocaleNotifier extends StateNotifier<String> {
 final uiLocaleProvider = StateNotifierProvider<UiLocaleNotifier, String>((ref) {
   final storage = ref.watch(storageServiceProvider);
   return UiLocaleNotifier(storage);
+});
+
+/// Ilovaning tanlangan dizayn uslubi (professional / minimalist / vibrant)
+/// — SharedPreferences orqali saqlanadi, shunda foydalanuvchi bir marta
+/// Sozlamalardan tanlagach, keyingi ochilishlarda ham o'sha uslub turadi.
+class ThemeStyleNotifier extends StateNotifier<AppThemeStyle> {
+  final StorageService _storage;
+
+  ThemeStyleNotifier(this._storage)
+      : super(AppThemeStyleX.fromCode(_storage.getThemeStyle()));
+
+  Future<void> setStyle(AppThemeStyle style) async {
+    state = style;
+    await _storage.saveThemeStyle(style.code);
+  }
+}
+
+final themeStyleProvider =
+    StateNotifierProvider<ThemeStyleNotifier, AppThemeStyle>((ref) {
+  final storage = ref.watch(storageServiceProvider);
+  return ThemeStyleNotifier(storage);
 });
 
 /// Joriy tarjima vazifasining to'liq holatini boshqaruvchi notifier.
@@ -181,23 +204,41 @@ class TranslationTaskNotifier extends StateNotifier<TranslationTaskState> {
     );
   }
 
-  /// Tayyor faylni qurilmaning "Downloads" (yoki ilova hujjatlar) papkasiga
-  /// yuklab saqlaydi va lokal yo'lni state'ga yozadi.
+  /// Tayyor faylni qurilmaning HAQIQIY "Downloads" papkasiga yuklab
+  /// saqlaydi va lokal yo'lni state'ga yozadi.
+  ///
+  /// MUHIM: avvalgi versiyada `getApplicationDocumentsDirectory()`
+  /// ishlatilgan edi — bu Android'da ilova xususiy (sandbox) papkasiga
+  /// ishora qiladi (masalan `/data/data/<paket>/app_flutter/`). Bu joy
+  /// faqat ilovaning o'ziga ko'rinadi: na Fayllar ilovasida, na boshqa
+  /// dasturlarda (WPS, Google Drive) topib bo'lmaydi. Foydalanuvchi
+  /// "Yuklab olish" tugmasini bossa ham, fayl texnik jihatdan saqlanadi,
+  /// lekin qurilmaning umumiy xotirasida "yo'qolgandek" bo'lib qoladi —
+  /// faqat ilovaning o'zi orqali (`_handleOpenExistingFile`) ochish
+  /// mumkin bo'lib qoladi.
+  ///
+  /// Bu funksiya endi Android'da haqiqiy ommaviy Download papkasiga
+  /// (`/storage/emulated/0/Download`) yozadi — bu foydalanuvchi
+  /// kutayotgan, standart Fayllar ilovasida ko'rinadigan joy.
   Future<File?> downloadResult() async {
     final taskId = state.taskId;
     if (taskId == null || !state.isCompleted) return null;
 
     try {
-      final dir = await getApplicationDocumentsDirectory();
       final originalName = state.originalFileName ?? 'document';
-      final ext = originalName.contains('.')
-          ? originalName.split('.').last
-          : 'pdf';
       final baseName = originalName.contains('.')
           ? originalName.substring(0, originalName.lastIndexOf('.'))
           : originalName;
-      final savePath =
-          '${dir.path}/${baseName}_translated_${state.targetLangCode}.$ext';
+
+      // MUHIM: fayl kengaytmasini backend qaytargan `outputFormat`dan
+      // olamiz, ORIGINAL fayl nomidan emas. Sabab: agar kirish PDF
+      // bo'lsa ham, backend hozirda natijani DOCX formatida qaytaradi
+      // (LibreOffice qayta-konvertatsiya bosqichi olib tashlangan).
+      final ext = state.progress.outputFormat ?? _fallbackExtension(originalName);
+      final fileName = '${baseName}_translated_${state.targetLangCode}.$ext';
+
+      final downloadsDir = await _resolvePublicDownloadsDirectory();
+      final savePath = '${downloadsDir.path}/$fileName';
 
       final file = await _api.downloadFile(
         taskId: taskId,
@@ -212,6 +253,66 @@ class TranslationTaskNotifier extends StateNotifier<TranslationTaskState> {
       );
       return null;
     }
+  }
+
+  /// Qurilmaning HAQIQIY, foydalanuvchiga ko'rinadigan Downloads
+  /// papkasini aniqlaydi.
+  ///
+  /// Android'da: to'g'ridan-to'g'ri `/storage/emulated/0/Download`ga
+  /// murojaat qilinadi. Bu maxsus, tizim tomonidan "umumiy" (shared)
+  /// deb tan olingan papka — Android 10+ scoped storage rejimida ham,
+  /// ilovalar bu papkaga alohida `MANAGE_EXTERNAL_STORAGE` ruxsatisiz
+  /// yoza oladi (bu boshqa ixtiyoriy papkalardan farqli holat).
+  ///
+  /// iOS'da esa umumiy "Downloads" tushunchasi yo'q (iOS'da ilovalar
+  /// bir-birining fayllarini ko'rmaydi) — shu sabab iOS uchun ilova
+  /// hujjatlar papkasiga qaytamiz, bu yerda foydalanuvchi "Files"
+  /// ilovasi orqali "On My iPhone > <ilova nomi>" bo'limida topadi.
+  Future<Directory> _resolvePublicDownloadsDirectory() async {
+    if (Platform.isAndroid) {
+      // Android 13+ da media ruxsatlari alohida turkumlangan, lekin
+      // to'g'ridan-to'g'ri /storage/emulated/0/Download yo'liga yozish
+      // uchun maxsus runtime ruxsat so'ralishi shart emas (bu WRITE
+      // qoidalaridan chetlangan umumiy papka). Ammo eski Android
+      // versiyalari (10 dan past) uchun ehtiyot chorasi sifatida
+      // ruxsatni so'raymiz — agar berilmasa, ilova xususiy papkaga
+      // qaytadi (fallback), hech bo'lmaganda funksiya ishlamay
+      // qolmaydi.
+      try {
+        final status = await Permission.storage.status;
+        if (!status.isGranted) {
+          await Permission.storage.request();
+        }
+      } catch (_) {
+        // Ruxsat so'rash muvaffaqiyatsiz bo'lsa ham davom etamiz —
+        // zamonaviy Android versiyalarida bu qadam shart emas.
+      }
+
+      const downloadsPath = '/storage/emulated/0/Download';
+      final downloadsDir = Directory(downloadsPath);
+      try {
+        if (!await downloadsDir.exists()) {
+          await downloadsDir.create(recursive: true);
+        }
+        return downloadsDir;
+      } catch (_) {
+        // Agar umumiy Download papkasiga yozib bo'lmasa (kamdan-kam,
+        // masalan juda cheklangan qurilmalarda), ilova xususiy
+        // papkasiga xavfsiz qaytadi — foydalanuvchi hech bo'lmaganda
+        // ilova ichidan faylni ochishi mumkin bo'lib qoladi.
+        return getApplicationDocumentsDirectory();
+      }
+    }
+
+    // iOS va boshqa platformalar uchun ilova hujjatlar papkasi.
+    return getApplicationDocumentsDirectory();
+  }
+
+  /// Agar biror sababdan backend `outputFormat`ni qaytarmasa (masalan
+  /// eski API versiyasi bilan ishlayotgan bo'lsa), original fayl
+  /// kengaytmasiga tayanadigan xavfsiz zaxira (fallback) usuli.
+  String _fallbackExtension(String originalName) {
+    return originalName.contains('.') ? originalName.split('.').last : 'docx';
   }
 
   /// Holatni tozalab, yangi tarjima uchun tayyorlaydi.

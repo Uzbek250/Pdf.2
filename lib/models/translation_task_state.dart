@@ -56,12 +56,26 @@ class TranslationProgress {
   /// qiladi. Backenddan to'g'ridan-to'g'ri kelgan xatoliklar uchun null.
   final String? errorType;
 
+  /// Yakuniy faylning haqiqiy formati (backend qaytargan, masalan
+  /// "docx" yoki "pdf"). MUHIM: original fayl PDF bo'lsa ham, backend
+  /// hozirda har doim "docx" qaytaradi (LibreOffice bosqichi olib
+  /// tashlangan) — shuning uchun UI qatlami fayl kengaytmasini ANIQ
+  /// shu maydondan olishi kerak, original fayl nomidan emas.
+  final String? outputFormat;
+
+  /// Original yuklangan fayl PDF bo'lganmi (ma'lumot uchun, UI'da
+  /// "Original PDF edi, natija DOCX formatida" kabi xabar ko'rsatish
+  /// uchun ishlatilishi mumkin).
+  final bool? wasOriginallyPdf;
+
   const TranslationProgress({
     required this.status,
     required this.progress,
     this.downloadUrl,
     this.error,
     this.errorType,
+    this.outputFormat,
+    this.wasOriginallyPdf,
   });
 
   factory TranslationProgress.fromJson(Map<String, dynamic> json) {
@@ -70,6 +84,8 @@ class TranslationProgress {
       progress: (json['progress'] as num?)?.toInt() ?? 0,
       downloadUrl: json['download_url'] as String?,
       error: json['error'] as String?,
+      outputFormat: json['output_format'] as String?,
+      wasOriginallyPdf: json['was_originally_pdf'] as bool?,
     );
   }
 
@@ -84,6 +100,8 @@ class TranslationProgress {
     String? downloadUrl,
     String? error,
     String? errorType,
+    String? outputFormat,
+    bool? wasOriginallyPdf,
   }) {
     return TranslationProgress(
       status: status ?? this.status,
@@ -91,6 +109,8 @@ class TranslationProgress {
       downloadUrl: downloadUrl ?? this.downloadUrl,
       error: error ?? this.error,
       errorType: errorType ?? this.errorType,
+      outputFormat: outputFormat ?? this.outputFormat,
+      wasOriginallyPdf: wasOriginallyPdf ?? this.wasOriginallyPdf,
     );
   }
 }

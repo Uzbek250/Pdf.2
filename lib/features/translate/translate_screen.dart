@@ -4,6 +4,8 @@ import 'package:open_file/open_file.dart';
 
 import '../../app/app_strings.dart';
 import '../../providers/translation_provider.dart';
+import '../../widgets/glass_surface.dart';
+import '../../widgets/glossy_button.dart';
 import 'widgets/translation_progress_indicator.dart';
 
 /// Tarjima jarayoni progressini real-vaqtda ko'rsatuvchi va yakunda
@@ -93,9 +95,37 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                     ),
                     const SizedBox(height: 40),
                     if (state.isCompleted) ...[
+                      if (state.progress.wasOriginallyPdf == true) ...[
+                        GlassSurface(
+                          borderRadius: 16,
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 20,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  strings.pdfConvertedToDocxNotice,
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton.icon(
+                        child: GlossyButton(
                           onPressed: _isDownloading
                               ? null
                               : (state.localDownloadedFilePath != null
@@ -124,7 +154,7 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: GlossyOutlineButton(
                           onPressed: _handleNewTranslation,
                           icon: const Icon(Icons.add_rounded),
                           label: Text(strings.newTranslationButton),
@@ -133,7 +163,7 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                     ] else if (state.isFailed) ...[
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton.icon(
+                        child: GlossyButton(
                           onPressed: _handleRetry,
                           icon: const Icon(Icons.refresh_rounded),
                           label: Text(strings.retryButton),
@@ -142,9 +172,9 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton(
+                        child: GlossyOutlineButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          child: Text(strings.cancelButton),
+                          label: Text(strings.cancelButton),
                         ),
                       ),
                     ] else ...[
