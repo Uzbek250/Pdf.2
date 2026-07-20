@@ -7,7 +7,7 @@ workflows:
       flutter: stable
       vars:
         # Railway backend manzilingiz
-        API_BASE_URL: "https://pdf-production-b2cd.up.railway.app"
+        API_BASE_URL: "http://169.58.50.197:8000"
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
